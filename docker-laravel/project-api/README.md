@@ -1,59 +1,252 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# Project API
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+Project API is a Laravel 12 application served by Laravel Octane on FrankenPHP. It exposes simple product and health-check API endpoints and connects to shared Docker services for MySQL and Redis.
 
-## About Laravel
+## Application Structure
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+```text
+project-api/
+├── app/
+│   └── Models/
+│       ├── Product.php
+│       └── User.php
+├── database/
+│   ├── migrations/
+│   └── seeders/
+│       ├── DatabaseSeeder.php
+│       └── ProductSeeder.php
+├── routes/
+│   ├── api.php
+│   └── web.php
+├── Dockerfile
+├── docker-compose.yml
+├── composer.json
+└── package.json
+```
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+## Requirements
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+- Docker and Docker Compose
+- Shared Docker network named `shared_network`
+- MySQL service reachable as `shared_mysql`
+- Redis service reachable as `shared_redis`
 
-## Learning Laravel
+The root repository contains a `shared-services` compose stack that provides these services.
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework. You can also check out [Laravel Learn](https://laravel.com/learn), where you will be guided through building a modern Laravel application.
+## Environment
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+The local `.env` uses MySQL and Redis from the shared Docker stack:
 
-## Laravel Sponsors
+```text
+DB_CONNECTION=mysql
+DB_HOST=shared_mysql
+DB_PORT=3306
+DB_DATABASE=project_api
+DB_USERNAME=root
+DB_PASSWORD=root
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+CACHE_STORE=redis
+SESSION_DRIVER=redis
+QUEUE_CONNECTION=redis
+REDIS_HOST=shared_redis
+REDIS_PORT=6379
 
-### Premium Partners
+OCTANE_SERVER=frankenphp
+```
 
-- **[Vehikl](https://vehikl.com)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Redberry](https://redberry.international/laravel-development)**
-- **[Active Logic](https://activelogic.com)**
+Keep `.env` local. Use `.env.example` as the template for new environments.
 
-## Contributing
+## Running With Docker
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+From the repository root:
 
-## Code of Conduct
+```bash
+cd shared-services
+docker compose up -d
+```
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+Then start the API:
 
-## Security Vulnerabilities
+```bash
+cd ../docker-laravel/project-api
+docker compose up -d --build
+```
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+The app is available at:
 
-## License
+```text
+http://localhost:8000
+```
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+## Database
+
+Create the `project_api` database in the shared MySQL container if needed:
+
+```bash
+docker exec -it shared_mysql mysql -uroot -proot -e "CREATE DATABASE IF NOT EXISTS project_api;"
+```
+
+Run migrations:
+
+```bash
+docker exec -it project_api php artisan migrate
+```
+
+Seed the default user:
+
+```bash
+docker exec -it project_api php artisan db:seed
+```
+
+Seed product data:
+
+```bash
+docker exec -it project_api php artisan db:seed --class=ProductSeeder
+```
+
+## API Reference
+
+Laravel automatically prefixes routes in `routes/api.php` with `/api`.
+
+### `GET /api/plain-ok`
+
+Returns a plain text health-check response.
+
+Response:
+
+```text
+OK
+```
+
+### `GET /api/json-ok`
+
+Returns a JSON health-check response.
+
+Response:
+
+```json
+{
+  "ok": true
+}
+```
+
+### `GET /api/products`
+
+Returns the first 5 products from the database.
+
+Response shape:
+
+```json
+[
+  {
+    "id": 1,
+    "name": "Product 1",
+    "price": "100.00"
+  }
+]
+```
+
+### `GET /api/redis`
+
+Returns the first 5 products and caches them in Redis for 60 seconds using the cache key `products`.
+
+Response shape:
+
+```json
+[
+  {
+    "id": 1,
+    "name": "Product 1",
+    "price": "100.00"
+  }
+]
+```
+
+### `GET /api/user`
+
+Returns the authenticated user.
+
+Authentication:
+
+```text
+auth:sanctum
+```
+
+This route requires a valid Laravel Sanctum-authenticated request. The project currently includes Sanctum but does not define custom token issuing endpoints.
+
+## Models
+
+### Product
+
+`App\Models\Product`
+
+Backed by the `products` table:
+
+- `id`
+- `name`
+- `price`
+- `created_at`
+- `updated_at`
+
+### User
+
+`App\Models\User`
+
+Backed by the `users` table and configured with Laravel's default authentication model behavior.
+
+## Development Commands
+
+```bash
+# Install PHP dependencies
+composer install
+
+# Install frontend dependencies
+npm install
+
+# Build frontend assets
+npm run build
+
+# Run Laravel tests
+php artisan test
+
+# Run all configured Composer test commands
+composer test
+
+# Clear application caches
+php artisan optimize:clear
+```
+
+Inside Docker, prefix Artisan commands with:
+
+```bash
+docker exec -it project_api
+```
+
+Example:
+
+```bash
+docker exec -it project_api php artisan optimize:clear
+```
+
+## Docker Image
+
+The Dockerfile:
+
+1. Uses `dunglas/frankenphp:latest`.
+2. Installs PHP extensions for MySQL, Redis, Octane, math, internationalization, compression, and opcode caching.
+3. Copies Composer from the official Composer image.
+4. Installs PHP dependencies.
+5. Starts Octane with FrankenPHP on port `8000`.
+
+## Testing
+
+The repository currently contains Laravel's starter example tests:
+
+- `tests/Feature/ExampleTest.php`
+- `tests/Unit/ExampleTest.php`
+
+Run them with:
+
+```bash
+docker exec -it project_api php artisan test
+```
