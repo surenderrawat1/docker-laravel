@@ -1,0 +1,20 @@
+services:
+
+  app:
+    build: .
+    container_name: project_api
+    restart: unless-stopped
+    working_dir: /app
+
+    ports:
+      - "8000:8000"
+
+    volumes:
+      - .:/app
+
+    networks:
+      - shared_network
+
+networks:
+  shared_network:
+    external: true
